@@ -1,83 +1,70 @@
-# Trade Helpers
+# Trade Helpers PWA
 
-A collection of trading tools and calculators to assist with options trading decisions.
+A modern, high-performance Progressive Web Application (PWA) built with **React 18**, **TypeScript**, and **Tailwind CSS v4**. Trade Helpers provides premium utility tools for options traders to plan exits, manage risk, and journal setups with precision.
 
-## Overview
+## Key Features
 
-Trade Helpers is a multi-application platform featuring various trading calculators and tools. The main hub provides easy access to all available tools through a clean, modern interface.
+### 1. Target Exit Calculator
+A sophisticated mathematical engine for determining optimal exit prices for NIFTY/SENSEX options.
+- **Dynamic Delta Estimation**: Automatically calculates average Delta based on both entry and target spot levels to estimate premium movement accurately.
+- **Time Decay (Theta) Models**:
+  - **Intraday**: Applies a ~4% theta decay simulation.
+  - **Overnight**: Applies a ~8% theta decay simulation to account for time risk.
+- **Volatility (IV) Scenarios**:
+  - **Conservative**: Simulates a 10% IV crush (common after sharp moves).
+  - **Base Case**: Neutral IV environment.
+  - **Optimistic**: Simulates a 12% IV expansion with reduced theta decay.
+- **Intrinsic Verification**: Ensures all projections respect the option's intrinsic value at the target spot.
 
-## Available Applications
+### 2. Strategic Stop-Loss Configuration
+Robust risk management with four distinct SL protocols:
+- **% of Premium**: Standard percentage-based exit.
+- **Points Based**: Fixed point drop from entry price.
+- **Spot Level Based**: Exits when the underlying index hits a specific price (calculates estimated premium using a 0.45 delta approximation).
+- **Fixed Premium**: Hard exit at a specific premium value.
+- **Risk Metrics**: Real-time calculation of **Total Capital Risk** and **Risk/Reward Ratio**.
 
-### Options Exit Price Calculator
+### 3. Trade Journaling System
+- **Snapshot Logic**: Save complete calculator states (including all inputs and SL parameters) with a single click.
+- **UID Tracking**: Every saved setup is assigned a unique ID and ISO timestamp.
+- **Smart Persistence**: Utilizes custom React hooks linked to browser `localStorage` to ensure your data stays on your device across sessions.
 
-A web-based calculator for determining optimal exit prices for NIFTY/SENSEX call and put options. It accounts for delta changes, theta decay, implied volatility scenarios, and provides stop loss recommendations.
-
-#### Features
-
-- **Exit Price Calculation**: Computes exit price ranges based on spot target levels, considering conservative, base case, and optimistic IV scenarios
-- **Stop Loss Calculator**: Supports multiple SL types (% based, points based, spot level based, fixed premium)
-- **Trade Types**: Handles both intraday and overnight positions with appropriate theta decay adjustments
-- **Risk-Reward Analysis**: Provides P&L projections and trade quality advice
-- **Responsive Design**: Modern dark UI with gradient backgrounds
-
-## How to Run
-
-1. Navigate to the project root directory:
-   ```bash
-   cd trade-helpers
-   ```
-
-2. Start a local HTTP server:
-   ```bash
-   python3 -m http.server 8080
-   ```
-
-3. Open your browser and go to the main hub: `http://localhost:8080/index.html`
-
-4. From the main hub, click on any application card to access the tool
+### 4. Premium PWA Architecture
+- **Glassmorphism UI**: High-end aesthetic using `backdrop-blur` and translucent layers.
+- **Offline Reliability**: Powered by `vite-plugin-pwa` and Service Workers for near-instant loads and offline access.
+- **Fully Responsive**: Tailored for both mobile-first on-field trading and desktop research.
 
 ## Project Structure
 
-```
+```bash
 trade-helpers/
-├── index.html          # Main application hub
-├── style.css           # Main hub styling
-├── README.md           # This file
-└── options-exit-stoploss-calculator/
-    ├── index.html      # Options calculator interface
-    ├── style.css       # Calculator styling
-    └── functions.js    # Calculator logic
+├── src/
+│   ├── components/       # Reusable React components (Calculator, Journal, etc.)
+│   ├── hooks/            # Custom hooks for LocalStorage and Trade History
+│   ├── lib/              # Core mathematical logic (calculations.ts)
+│   └── main.tsx          # App entry point
+├── public/               # Static assets and PWA icons
+├── vite.config.ts        # PWA and Build configuration
+└── README.md             # This documentation
 ```
 
-## Technologies Used
+## Local Setup
 
-- HTML5
-- CSS3 (with modern features like backdrop-filter and CSS Grid)
-- Vanilla JavaScript
+1. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
 
-## Usage
+2. **Run Development Server**:
+   ```bash
+   npm run dev
+   ```
 
-### Main Hub
-- Access all available trading tools from a single, organized interface
-- Each tool is presented as an interactive card with description
-- Easy navigation between different calculators
-
-### Options Exit Price Calculator
-
-1. Enter your option details (strike price, entry premium, spot levels, etc.)
-2. Select option type (CE/PE), IV scenario, and trade type
-3. Click "Calculate Exit Price" to see recommended exit ranges
-4. Use the Stop Loss section to set appropriate risk management levels
-
-## Adding New Applications
-
-To add a new trading tool:
-
-1. Create a new subdirectory under the project root
-2. Add your application's `index.html`, `style.css`, and any required JavaScript files
-3. Add a new card to the `.apps-grid` section in the main `index.html`
-4. Update this README with information about the new tool
+3. **Production Build**:
+   ```bash
+   npm run build
+   ```
 
 ## Disclaimer
 
-This tool is for educational and informational purposes only. Not financial advice. Always do your own research and consult with financial professionals before making trading decisions.
+This software is for **educational and informational purposes only**. Trading involves significant risk. This tool does not provide financial advice or execute trades. Always verify calculations and consult with a certified financial advisor before making investment decisions.
