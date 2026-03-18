@@ -1,25 +1,83 @@
 import { useTradeHistory } from '../hooks/useTradeHistory';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Download, Upload } from 'lucide-react';
 
 export function TradeJournal() {
-  const { trades, removeTrade, clearJournal } = useTradeHistory();
+  const { trades, removeTrade, clearJournal, importTrades } = useTradeHistory();
 
   const fmt = (v: number) => Math.round(v).toLocaleString('en-IN');
   const dFmt = (d: string) => new Intl.DateTimeFormat('en-IN', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(d));
 
+  const handleExport = () => {
+    const dataStr = JSON.stringify(trades, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `trade_helpers_backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (Array.isArray(json)) {
+          if (confirm('Importing this file will overwrite your current journal. Continue?')) {
+            importTrades(json);
+          }
+        } else {
+          alert('Invalid backup file format.');
+        }
+      } catch (err) {
+        alert('Error parsing backup file.');
+      }
+    };
+    reader.readAsText(file);
+    // Reset input so the same file can be uploaded twice if needed
+    e.target.value = '';
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="glass-panel rounded-2xl p-6 md:p-8">
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
           <div>
             <h2 className="text-2xl font-bold text-white mb-2">Trade Journal</h2>
             <p className="text-gray-400 text-sm">Review your historically calculated setups and risk profiles.</p>
           </div>
-          {trades.length > 0 && (
-              <button onClick={clearJournal} className="text-sm px-4 py-2 text-red-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-colors border border-red-500/20">
+          
+          <div className="flex flex-wrap items-center gap-2">
+            <button 
+              onClick={handleExport}
+              className="flex items-center gap-2 text-sm px-4 py-2 bg-brand-500/10 text-brand-400 hover:text-white hover:bg-brand-500/20 rounded-lg transition-colors border border-brand-500/20"
+            >
+              <Download className="w-4 h-4" />
+              Backup JSON
+            </button>
+            
+            <label className="flex items-center gap-2 text-sm px-4 py-2 bg-emerald-500/10 text-emerald-400 hover:text-white hover:bg-emerald-500/20 rounded-lg transition-colors border border-emerald-500/20 cursor-pointer">
+              <Upload className="w-4 h-4" />
+              Import JSON
+              <input type="file" accept=".json" onChange={handleImport} className="hidden" />
+            </label>
+
+            {trades.length > 0 && (
+              <button 
+                onClick={clearJournal} 
+                className="flex items-center gap-2 text-sm px-4 py-2 text-red-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-colors border border-red-500/20"
+              >
+                <Trash2 className="w-4 h-4" />
                 Clear All
               </button>
-          )}
+            )}
+          </div>
         </div>
 
         {trades.length === 0 ? (

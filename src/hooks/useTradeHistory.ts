@@ -31,5 +31,9 @@ export function useTradeHistory() {
     setTrades([]);
   };
 
-  return { trades, addTrade, removeTrade, clearJournal };
+  const importTrades = (importedTrades: SavedTrade[]) => {
+    setTrades(importedTrades);
+  };
+
+  return { trades, addTrade, removeTrade, clearJournal, importTrades };
 }

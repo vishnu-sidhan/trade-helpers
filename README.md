@@ -26,6 +26,9 @@ Robust risk management with four distinct SL protocols:
 
 ### 3. Trade Journaling System
 - **Snapshot Logic**: Save complete calculator states (including all inputs and SL parameters) with a single click.
+- **Export/Import JSON**: Move your data between devices or keep offline backups.
+  - **Backup JSON**: Downloads a timestamped `.json` file containing your entire journal history.
+  - **Restore JSON**: Overwrites the current session with a previously saved backup file.
 - **UID Tracking**: Every saved setup is assigned a unique ID and ISO timestamp.
 - **Smart Persistence**: Utilizes custom React hooks linked to browser `localStorage` to ensure your data stays on your device across sessions.
 
