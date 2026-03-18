@@ -25,6 +25,22 @@ export interface CalculatorResult {
   optimistic: ScenarioResult;
 }
 
+// --- Decay Timeline Types ---
+export interface DecayTimePoint {
+  label: string;        // e.g. "Now", "30 min", "1 hr", "EOD"
+  minutesFromNow: number;
+  conservative: number; // target premium after decay
+  base: number;
+  optimistic: number;
+  thetaLoss: number;    // cumulative theta loss from entry time
+}
+
+export interface DecayTimelineResult {
+  points: DecayTimePoint[];
+  thetaPerMinute: number;
+  totalTradingMinutes: number;
+}
+
 export function calculateExitStats(inputs: CalculatorInputs): CalculatorResult {
   const { strike, entry, spotEntry, spotTarget, lotSize, optType, tradeType } = inputs;
 
@@ -84,4 +100,65 @@ export function calculateExitStats(inputs: CalculatorInputs): CalculatorResult {
     base,
     optimistic
   };
+}
+
+/**
+ * calculateDecayTimeline
+ * ----------------------
+ * Given the calculator inputs and the target prices from calculateExitStats,
+ * this function returns how the target premium decays over the trading session
+ * due to theta (time decay) if the spot does NOT move — i.e., it shows how
+ * long the trader has before theta erodes the target exit price.
+ *
+ * Time slots are generated for a standard NSE intraday session (9:15 – 15:30).
+ * For overnight trades the session extends to next-day open (approx 375 min).
+ */
+export function calculateDecayTimeline(
+  inputs: CalculatorInputs,
+  targetBase: number   // base-case target premium (result.base midpoint)
+): DecayTimelineResult {
+  const { entry, tradeType } = inputs;
+
+  // Total trading minutes in the session
+  const totalTradingMinutes = tradeType === 'intraday' ? 375 : 750; // ~375 min NSE intraday, 750 for overnight
+
+  // Theta (full session) from the existing model
+  const thetaFull = tradeType === 'intraday' ? entry * 0.04 : entry * 0.08;
+
+  // Per-minute theta rate (non-linear: accelerates toward expiry — square-root time model)
+  // We model: cumulativeTheta(t) = thetaFull * sqrt(t / totalTradingMinutes)
+  const thetaPerMinute = thetaFull / totalTradingMinutes; // linear approximation for display
+
+  // Time slots
+  const rawSlots: { label: string; minutes: number }[] = [
+    { label: 'Entry (Now)', minutes: 0 },
+    { label: '30 min', minutes: 30 },
+    { label: '1 hr', minutes: 60 },
+    { label: '1.5 hr', minutes: 90 },
+    { label: '2 hr', minutes: 120 },
+    { label: '2.5 hr', minutes: 150 },
+    { label: '3 hr', minutes: 180 },
+    { label: 'EOD / Exit', minutes: totalTradingMinutes },
+  ];
+
+  const points: DecayTimePoint[] = rawSlots.map(({ label, minutes }) => {
+    // Non-linear (sqrt) cumulative theta — theta accelerates as expiry nears
+    const thetaLoss = thetaFull * Math.sqrt(minutes / totalTradingMinutes);
+
+    // The target premium is the base-case target MINUS whatever theta has eroded
+    const baseDecayed   = Math.max(entry, parseFloat((targetBase - thetaLoss).toFixed(2)));
+    const consDecayed   = Math.max(entry * 0.9, parseFloat((targetBase - thetaLoss - entry * 0.10).toFixed(2)));
+    const optiDecayed   = Math.max(entry, parseFloat((targetBase - thetaLoss * 0.5 + entry * 0.12).toFixed(2)));
+
+    return {
+      label,
+      minutesFromNow: minutes,
+      base: baseDecayed,
+      conservative: consDecayed,
+      optimistic: optiDecayed,
+      thetaLoss: parseFloat(thetaLoss.toFixed(2)),
+    };
+  });
+
+  return { points, thetaPerMinute, totalTradingMinutes };
 }
