@@ -47,15 +47,16 @@ export interface DecayTimelineResult {
  * calculateDailyTheta
  * -------------------
  * Computes the estimated daily theta (time decay in ₹ per unit per day)
- * using the Black-Scholes at-the-money approximation formula:
+ * using the Black-Scholes at-the-money approximation:
  *
- *   Θ/day ≈ (S × σ × N'(d1)) / (2 × √T)
+ *   Θ_annual ≈ (S × σ × N'(d1)) / (2 × √T)    ← T in years, N'(d1)≈0.4 for ATM
+ *   Θ_daily  = Θ_annual / 252                     ← divide by trading days/year
  *
- * Simplified for near-ATM options where N'(d1) ≈ 0.4:
- *   Θ/day ≈ (spotEntry × (iv/100) × 0.4) / (2 × √(dte/365))
+ * Equivalent form:
+ *   Θ/day ≈ (S × σ × 0.4) / (2 × √(dte/252) × 252)
  *
- * This is instrument-agnostic and works for Nifty (~23000), Sensex (~76500),
- * BankNifty (~50000), or any other index because it uses spotEntry as the base.
+ * Example: Nifty spot=23125, IV=15%, DTE=7
+ *   Θ/day = (23125 × 0.15 × 0.4) / (2 × √(7/252) × 252) ≈ ₹16.5
  *
  * @param spotEntry  - Current spot price of the underlying (e.g. 23125 for Nifty)
  * @param iv         - Implied volatility in percent (e.g. 15 for 15%)
@@ -64,11 +65,12 @@ export interface DecayTimelineResult {
  */
 export function calculateDailyTheta(spotEntry: number, iv: number, dte: number): number {
   const ivDecimal = iv / 100;
-  // Clamp DTE to a minimum of 0.25 days to avoid division by zero on expiry day
+  // Clamp DTE to a minimum of 0.25 trading days to avoid division by zero on expiry day
   const safeDte = Math.max(dte, 0.25);
-  const T = safeDte / 365;                          // time in years
-  const theta = (spotEntry * ivDecimal * 0.4) / (2 * Math.sqrt(T));
-  return parseFloat(theta.toFixed(4));
+  // Annualised theta (BS ATM approximation), then converted to per-trading-day
+  const annualisedTheta = (spotEntry * ivDecimal * 0.4) / (2 * Math.sqrt(safeDte / 252));
+  const dailyTheta = annualisedTheta / 252;
+  return parseFloat(dailyTheta.toFixed(4));
 }
 
 export function calculateExitStats(inputs: CalculatorInputs): CalculatorResult {
