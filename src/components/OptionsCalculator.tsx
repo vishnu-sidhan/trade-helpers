@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { CalculatorInputs } from '../lib/calculations';
-import { calculateExitStats, calculateDecayTimeline } from '../lib/calculations';
+import { calculateExitStats, calculateDecayTimeline, calculateDailyTheta } from '../lib/calculations';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useTradeHistory } from '../hooks/useTradeHistory';
 import { Save } from 'lucide-react';
@@ -15,7 +15,9 @@ export function OptionsCalculator() {
     lotSize: 65,
     optType: 'CE',
     ivScenario: 'base',
-    tradeType: 'intraday'
+    tradeType: 'intraday',
+    dte: 7,
+    iv: 15,
   });
 
   const [slInputs, setSlInputs] = useLocalStorage('slSettings', {
@@ -66,6 +68,10 @@ export function OptionsCalculator() {
 
   const result = calculateExitStats(inputs);
 
+  // Theta display — uses the same calculateDailyTheta as the engine
+  const dailyThetaDisplay = calculateDailyTheta(inputs.spotEntry, inputs.iv, inputs.dte);
+  const sessionThetaDisplay = dailyThetaDisplay * (inputs.tradeType === 'intraday' ? 0.5 : 1.5);
+
   // --- Decay Timeline Calculation ---
   // Midpoint of base case high/low
   const baseMid = (result.base.low + result.base.high) / 2;
@@ -112,6 +118,17 @@ export function OptionsCalculator() {
           <div>
             <h2 className="text-2xl font-bold text-white mb-2">Target Exit Calculator</h2>
             <p className="text-gray-400 text-sm">Fine-tune your profit targets based on expected volatility and decay</p>
+            <div className="flex flex-wrap gap-3 mt-4 mb-2">
+              <span className="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono px-3 py-1 rounded-full">
+                θ/day ≈ ₹{dailyThetaDisplay.toFixed(2)}
+              </span>
+              <span className="bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono px-3 py-1 rounded-full">
+                θ/session ≈ ₹{sessionThetaDisplay.toFixed(2)}
+              </span>
+              <span className="bg-white/5 border border-white/10 text-gray-400 text-xs font-mono px-3 py-1 rounded-full">
+                DTE {inputs.dte} · IV {inputs.iv}%
+              </span>
+            </div>
           </div>
           <button
             onClick={handleSave}
@@ -166,6 +183,32 @@ export function OptionsCalculator() {
               <option value="intraday">Intraday</option>
               <option value="overnight">Overnight</option>
             </select>
+          </div>
+          <div>
+            <label className="label-text">Days to Expiry (DTE)</label>
+            <input
+              name="dte"
+              type="number"
+              min={1}
+              value={inputs.dte}
+              onChange={handleChange}
+              className="input-field"
+            />
+            <p className="text-xs text-gray-500 mt-1">1=Expiry day · 7=Weekly · 30=Monthly</p>
+          </div>
+          <div>
+            <label className="label-text">IV % (Implied Volatility)</label>
+            <input
+              name="iv"
+              type="number"
+              min={1}
+              max={100}
+              step={0.5}
+              value={inputs.iv}
+              onChange={handleChange}
+              className="input-field"
+            />
+            <p className="text-xs text-gray-500 mt-1">Check option chain for live IV</p>
           </div>
         </div>
       </div>

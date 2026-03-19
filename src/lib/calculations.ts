@@ -7,6 +7,8 @@ export interface CalculatorInputs {
   optType: 'CE' | 'PE';
   ivScenario: 'conservative' | 'base' | 'optimistic';
   tradeType: 'intraday' | 'overnight';
+  dte: number;   // Days to Expiry — e.g. 1 for expiry day, 7 for weekly, 30 for monthly
+  iv: number;    // Implied Volatility in percent — e.g. 15 means 15%
 }
 
 export interface ScenarioResult {
@@ -41,8 +43,36 @@ export interface DecayTimelineResult {
   totalTradingMinutes: number;
 }
 
+/**
+ * calculateDailyTheta
+ * -------------------
+ * Computes the estimated daily theta (time decay in ₹ per unit per day)
+ * using the Black-Scholes at-the-money approximation formula:
+ *
+ *   Θ/day ≈ (S × σ × N'(d1)) / (2 × √T)
+ *
+ * Simplified for near-ATM options where N'(d1) ≈ 0.4:
+ *   Θ/day ≈ (spotEntry × (iv/100) × 0.4) / (2 × √(dte/365))
+ *
+ * This is instrument-agnostic and works for Nifty (~23000), Sensex (~76500),
+ * BankNifty (~50000), or any other index because it uses spotEntry as the base.
+ *
+ * @param spotEntry  - Current spot price of the underlying (e.g. 23125 for Nifty)
+ * @param iv         - Implied volatility in percent (e.g. 15 for 15%)
+ * @param dte        - Days to expiry (use 0.5 for same-day expiry afternoon)
+ * @returns          - Theta per unit per day (positive number, represents decay)
+ */
+export function calculateDailyTheta(spotEntry: number, iv: number, dte: number): number {
+  const ivDecimal = iv / 100;
+  // Clamp DTE to a minimum of 0.25 days to avoid division by zero on expiry day
+  const safeDte = Math.max(dte, 0.25);
+  const T = safeDte / 365;                          // time in years
+  const theta = (spotEntry * ivDecimal * 0.4) / (2 * Math.sqrt(T));
+  return parseFloat(theta.toFixed(4));
+}
+
 export function calculateExitStats(inputs: CalculatorInputs): CalculatorResult {
-  const { strike, entry, spotEntry, spotTarget, lotSize, optType, tradeType } = inputs;
+  const { strike, entry, spotEntry, spotTarget, lotSize, optType, tradeType, dte, iv } = inputs;
 
   // Intrinsic value at target
   let intrinsic = 0;
@@ -74,8 +104,13 @@ export function calculateExitStats(inputs: CalculatorInputs): CalculatorResult {
   const avgDelta = (deltaEntry + deltaTarget) / 2;
   const premiumGain = spotMove * avgDelta;
 
-  // Theta decay
-  const theta = tradeType === 'intraday' ? (entry * 0.04) : (entry * 0.08);
+  // Theta decay — dynamic, using Black-Scholes ATM approximation
+  // thetaFull = daily theta × fraction of day traded
+  // Intraday: theta for ~0.5 trading session equivalent
+  // Overnight: theta for ~1.5 days (accounts for overnight time decay)
+  const dailyTheta = calculateDailyTheta(spotEntry, iv, dte);
+  const sessionFraction = tradeType === 'intraday' ? 0.5 : 1.5;
+  const theta = dailyTheta * sessionFraction;
 
   const calculateScenario = (ivModifier: number, thetaModifier: number = 1): ScenarioResult => {
     const exitBase = Math.max(intrinsic, entry + premiumGain - (theta * thetaModifier) + ivModifier);
@@ -117,17 +152,17 @@ export function calculateDecayTimeline(
   inputs: CalculatorInputs,
   targetBase: number   // base-case target premium (result.base midpoint)
 ): DecayTimelineResult {
-  const { entry, tradeType } = inputs;
+  const { entry, tradeType, spotEntry, iv, dte } = inputs;
 
-  // Total trading minutes in the session
-  const totalTradingMinutes = tradeType === 'intraday' ? 375 : 750; // ~375 min NSE intraday, 750 for overnight
+  const totalTradingMinutes = tradeType === 'intraday' ? 375 : 750;
 
-  // Theta (full session) from the existing model
-  const thetaFull = tradeType === 'intraday' ? entry * 0.04 : entry * 0.08;
+  // Use the same Black-Scholes theta as calculateExitStats for consistency
+  const dailyTheta = calculateDailyTheta(spotEntry, iv, dte);
+  const sessionFraction = tradeType === 'intraday' ? 0.5 : 1.5;
+  const thetaFull = dailyTheta * sessionFraction;
 
-  // Per-minute theta rate (non-linear: accelerates toward expiry — square-root time model)
-  // We model: cumulativeTheta(t) = thetaFull * sqrt(t / totalTradingMinutes)
-  const thetaPerMinute = thetaFull / totalTradingMinutes; // linear approximation for display
+  // Per-minute theta (used for display badge and decay interpolation)
+  const thetaPerMinute = thetaFull / totalTradingMinutes;
 
   // Time slots
   const rawSlots: { label: string; minutes: number }[] = [

@@ -46,7 +46,7 @@ export function DecayTimeline({ timeline, entry, targetBase }: Props) {
         </div>
         <div className="bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-center">
           <p className="text-xs text-gray-400 uppercase tracking-wide">Theta / min</p>
-          <p className="text-lg font-bold text-amber-300">-₹{(thetaPerMinute).toFixed(3)}</p>
+          <p className="text-lg font-bold text-amber-300">-₹{(thetaPerMinute).toFixed(4)}</p>
         </div>
       </div>
 
